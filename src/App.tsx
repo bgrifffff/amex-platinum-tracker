@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Badge, Box, Button, Callout, Card, Container, Flex, Heading, Progress, Select, Separator, Tabs, Text, Theme,
+  Badge, Box, Button, Card, Container, Flex, Heading, Progress, Select, Separator, Tabs, Text, Theme,
 } from '@radix-ui/themes'
 import { AT_RISK_DAYS, BenefitCard } from './components/BenefitCard'
 import { YearGrid } from './components/YearGrid'
@@ -123,10 +123,6 @@ export default function App() {
   const atRisk = openRows
     .filter((r) => r.left <= AT_RISK_DAYS)
     .reduce((sum, r) => sum + (r.amount - r.used), 0)
-
-  // An unenrolled credit pays nothing, so this is money that looks available but is not.
-  const unenrolled = rows.filter((r) => !r.benefit.enrolled && !isSkippedRow(r))
-  const unenrolledValue = unenrolled.reduce((sum, r) => sum + (r.amount - r.used), 0)
 
   /** How much of the year's logged total Amex has actually paid back. */
   const confirmed = useMemo(() => {
@@ -280,32 +276,6 @@ export default function App() {
                 </Card>
               ) : (
                 <Flex direction="column" gap="4">
-                  {unenrolled.length > 0 && (
-                    <Callout.Root color="red">
-                      <Callout.Text>
-                        <Text weight="medium">
-                          {fmtMoney(unenrolledValue)} across {unenrolled.length}{' '}
-                          {unenrolled.length === 1 ? 'credit' : 'credits'} will not pay out until you
-                          enroll.
-                        </Text>
-                        {' '}Enrollment is a one-time click per credit in the Amex app, and nothing in
-                        your statement data reveals whether you have done it, so mark them off here:
-                        <Flex gap="2" mt="2" wrap="wrap">
-                          {unenrolled.map((r) => (
-                            <Button
-                              key={r.benefit.id}
-                              size="1"
-                              variant="soft"
-                              color="gray"
-                              onClick={() => t.setEnrolled(r.benefit.id, true)}
-                            >
-                              {r.benefit.name.replace(/ credit.*$/i, '')} &#10003;
-                            </Button>
-                          ))}
-                        </Flex>
-                      </Callout.Text>
-                    </Callout.Root>
-                  )}
                   <Box>
                     <Text as="div" size="1" color="gray" mb="2" style={{ textTransform: 'uppercase', letterSpacing: '.06em' }}>
                       Unused, soonest deadline first
