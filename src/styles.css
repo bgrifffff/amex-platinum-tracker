@@ -50,6 +50,30 @@ table.grid tbody tr:hover th:first-child {
   background: var(--gray-a2);
 }
 
+/* The period you are in now, so "which quarter is this" needs no counting. */
+table.grid th.current,
+table.grid td.current {
+  background: var(--accent-a3);
+}
+
+table.grid thead th.current {
+  color: var(--accent-11);
+  font-weight: 700;
+}
+
+table.grid tbody tr:hover td.current {
+  background: var(--accent-a4);
+}
+
+.now-dot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-9);
+  margin: 3px auto 0;
+}
+
 /* Period cells. Radix has no "toggleable square" primitive, so these are hand-built. */
 .pip {
   display: inline-flex;
