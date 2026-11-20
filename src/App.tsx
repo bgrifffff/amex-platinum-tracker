@@ -110,12 +110,14 @@ export default function App() {
     }), [t.benefits, claimFor, now])
 
   const totals = useMemo(
-    () => yearTotals(t.benefits, claimFor, year, now, t.state.cardOpened),
-    [t.benefits, claimFor, year, now, t.state.cardOpened],
+    () => yearTotals(t.benefits, claimFor, year, now, t.state.cardOpened, t.isSkipped),
+    [t.benefits, claimFor, year, now, t.state.cardOpened, t.isSkipped],
   )
 
-  const openRows = rows.filter((r) => r.used < r.amount)
-  const doneRows = rows.filter((r) => r.used >= r.amount)
+  const skippedRows = rows.filter((r) => t.isSkipped(r.benefit.id, r.period.key))
+  const isSkippedRow = (r: Row) => t.isSkipped(r.benefit.id, r.period.key)
+  const openRows = rows.filter((r) => r.used < r.amount && !isSkippedRow(r))
+  const doneRows = rows.filter((r) => r.used >= r.amount && !isSkippedRow(r))
   const openNow = openRows.reduce((sum, r) => sum + (r.amount - r.used), 0)
   // Same absolute-time rule the cards colour by, so the total and the badges agree.
   const atRisk = openRows
@@ -123,7 +125,7 @@ export default function App() {
     .reduce((sum, r) => sum + (r.amount - r.used), 0)
 
   // An unenrolled credit pays nothing, so this is money that looks available but is not.
-  const unenrolled = rows.filter((r) => !r.benefit.enrolled)
+  const unenrolled = rows.filter((r) => !r.benefit.enrolled && !isSkippedRow(r))
   const unenrolledValue = unenrolled.reduce((sum, r) => sum + (r.amount - r.used), 0)
 
   /** How much of the year's logged total Amex has actually paid back. */
@@ -169,6 +171,8 @@ export default function App() {
         manualOnly={UNDETECTABLE[r.benefit.id]}
         onSetUsed={(used) => t.setUsed(r.benefit.id, r.period.key, used)}
         onSetEnrolled={(enrolled) => t.setEnrolled(r.benefit.id, enrolled)}
+        skipped={t.isSkipped(r.benefit.id, r.period.key)}
+        onSetSkipped={(v) => t.setSkipped(r.benefit.id, r.period.key, v)}
       />
     )
   }
@@ -291,8 +295,8 @@ export default function App() {
                             <Button
                               key={r.benefit.id}
                               size="1"
-                              variant="surface"
-                              color="red"
+                              variant="soft"
+                              color="gray"
                               onClick={() => t.setEnrolled(r.benefit.id, true)}
                             >
                               {r.benefit.name.replace(/ credit.*$/i, '')} &#10003;
@@ -314,6 +318,14 @@ export default function App() {
                         Already used this period
                       </Text>
                       <Flex direction="column" gap="2">{doneRows.map(card)}</Flex>
+                    </Box>
+                  )}
+                  {skippedRows.length > 0 && (
+                    <Box>
+                      <Text as="div" size="1" color="gray" mb="2" style={{ textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                        Not usable this period
+                      </Text>
+                      <Flex direction="column" gap="2">{skippedRows.map(card)}</Flex>
                     </Box>
                   )}
                 </Flex>
@@ -348,6 +360,7 @@ export default function App() {
                 claimFor={claimFor}
                 setUsed={t.setUsed}
                 cardOpened={t.state.cardOpened}
+                isSkipped={t.isSkipped}
               />
             </Tabs.Content>
 

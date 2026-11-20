@@ -35,6 +35,13 @@ export interface AppState {
    * this is the one thing only the cardholder can tell us.
    */
   enrolled: Record<string, boolean>
+  /**
+   * benefitId -> periodKey -> true for a period the cardholder cannot use at all,
+   * typically because they were already billed for the service outside the window.
+   * Distinct from unused: skipped money was never reachable, so counting it as
+   * missed would blame them for something they could not have done.
+   */
+  skipped: Record<string, Record<string, boolean>>
 }
 
 function emptyState(): AppState {
@@ -46,6 +53,7 @@ function emptyState(): AppState {
     overrides: {},
     oneOffs: {},
     enrolled: {},
+    skipped: {},
   }
 }
 
@@ -62,6 +70,7 @@ function load(): AppState {
       overrides: parsed.overrides ?? {},
       oneOffs: parsed.oneOffs ?? {},
       enrolled: parsed.enrolled ?? {},
+      skipped: parsed.skipped ?? {},
     }
   } catch {
     return emptyState()
@@ -162,6 +171,20 @@ export function useTracker() {
     setState((s) => ({ ...s, enrolled: { ...s.enrolled, [benefitId]: enrolled } }))
   }, [])
 
+  const setSkipped = useCallback((benefitId: string, periodKey: string, skipped: boolean) => {
+    setState((s) => {
+      const forBenefit = { ...(s.skipped[benefitId] ?? {}) }
+      if (skipped) forBenefit[periodKey] = true
+      else delete forBenefit[periodKey]
+      return { ...s, skipped: { ...s.skipped, [benefitId]: forBenefit } }
+    })
+  }, [])
+
+  const isSkipped = useCallback(
+    (benefitId: string, periodKey: string) => Boolean(s_skipped(state, benefitId, periodKey)),
+    [state],
+  )
+
   const setOneOffYear = useCallback((id: string, usedYear: number | null) => {
     setState((s) => ({ ...s, oneOffs: { ...s.oneOffs, [id]: { usedYear } } }))
   }, [])
@@ -184,9 +207,14 @@ export function useTracker() {
 
   return {
     state, benefits, claimFor, setUsed, setOverride, resetOverride,
-    setAnnualFee, setCardOpened, setEnrolled, setOneOffYear, clearYear, importState,
+    setAnnualFee, setCardOpened, setEnrolled, setSkipped, isSkipped, setOneOffYear,
+    clearYear, importState,
     oneOffs: ONE_OFFS,
   }
+}
+
+function s_skipped(state: AppState, benefitId: string, periodKey: string): boolean {
+  return Boolean(state.skipped[benefitId]?.[periodKey])
 }
 
 /**
@@ -219,6 +247,7 @@ export function yearTotals(
   year: number,
   now: Date,
   cardOpened: string | null = null,
+  isSkipped: (benefitId: string, periodKey: string) => boolean = () => false,
 ): YearTotals {
   let available = 0
   let availableToDate = 0
@@ -229,6 +258,7 @@ export function yearTotals(
     if (!b.enabled) continue
     for (const period of periodsInYear(b.cadence, year)) {
       if (!periodWasAvailable(period, cardOpened)) continue
+      if (isSkipped(b.id, period.key)) continue
       const amount = amountForPeriod(b, period)
       available += amount
       const started = period.start.getTime() <= now.getTime()

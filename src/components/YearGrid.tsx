@@ -37,9 +37,10 @@ interface Props {
   claimFor: (benefitId: string, periodKey: string) => Claim | undefined
   setUsed: (benefitId: string, periodKey: string, used: number) => void
   cardOpened: string | null
+  isSkipped: (benefitId: string, periodKey: string) => boolean
 }
 
-export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened }: Props) {
+export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened, isSkipped }: Props) {
   const active = benefits.filter((b) => b.enabled)
 
   return (
@@ -98,6 +99,17 @@ export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened }:
                           <td key={period.key}>
                             <Text size="2" color="gray" title={label} aria-label={label}
                               style={{ opacity: .4 }}>&ndash;</Text>
+                          </td>
+                        )
+                      }
+
+                      if (isSkipped(b.id, period.key)) {
+                        const label = `${b.name}, ${period.label}: you marked this one unusable`
+                        return (
+                          <td key={period.key} className={isCurrent ? 'current' : undefined}>
+                            <span className="pip skipped" title={label} aria-label={label}>
+                              &ndash;
+                            </span>
                           </td>
                         )
                       }
@@ -168,6 +180,7 @@ export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened }:
             { cls: 'partial', glyph: '\u00bd', label: 'Partly logged' },
             { cls: 'missed', glyph: '\u2715', label: 'Expired unlogged' },
             { cls: '', glyph: '', label: 'Open now' },
+            { cls: 'skipped', glyph: '\u2013', label: 'Not usable' },
           ].map((l) => (
             <Flex key={l.label} align="center" gap="2">
               {/* The legend keys are real pips, so they cannot drift from the grid. */}

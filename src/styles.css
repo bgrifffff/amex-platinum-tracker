@@ -141,6 +141,13 @@ table.grid tbody tr:hover td.current {
   font-weight: 700;
 }
 
+.pip.skipped {
+  background: transparent;
+  border-style: dashed;
+  color: var(--gray-a9);
+  cursor: default;
+}
+
 .pip:disabled {
   opacity: .35;
   cursor: default;

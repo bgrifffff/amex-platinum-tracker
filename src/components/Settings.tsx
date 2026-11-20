@@ -62,6 +62,7 @@ export function Settings({
           overrides: parsed.overrides ?? {},
           oneOffs: parsed.oneOffs ?? {},
           enrolled: parsed.enrolled ?? state.enrolled,
+          skipped: parsed.skipped ?? {},
         })
       } catch {
         alert('That file is not a tracker export. Look for the platinum-tracker-YYYY-MM-DD.json that Export JSON writes.')
