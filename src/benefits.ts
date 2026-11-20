@@ -75,7 +75,7 @@ export const BENEFITS: Benefit[] = [
   },
   {
     id: 'digital-entertainment',
-    name: 'Digital entertainment credit',
+    name: 'Digital entertainment credit (YouTube TV)',
     amount: 25,
     cadence: 'monthly',
     category: 'Entertainment',
