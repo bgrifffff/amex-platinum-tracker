@@ -20,6 +20,11 @@ export interface Override {
 export interface AppState {
   version: 1
   annualFee: number
+  /**
+   * ISO date (YYYY-MM-DD) the card was opened, or null if not set. Periods that
+   * closed before this date were never available, so they are not counted as missed.
+   */
+  cardOpened: string | null
   /** benefitId -> periodKey -> claim */
   claims: Record<string, Record<string, Claim>>
   overrides: Record<string, Override>
@@ -27,7 +32,14 @@ export interface AppState {
 }
 
 function emptyState(): AppState {
-  return { version: 1, annualFee: DEFAULT_ANNUAL_FEE, claims: {}, overrides: {}, oneOffs: {} }
+  return {
+    version: 1,
+    annualFee: DEFAULT_ANNUAL_FEE,
+    cardOpened: null,
+    claims: {},
+    overrides: {},
+    oneOffs: {},
+  }
 }
 
 function load(): AppState {
@@ -38,6 +50,7 @@ function load(): AppState {
     return {
       version: 1,
       annualFee: typeof parsed.annualFee === 'number' ? parsed.annualFee : DEFAULT_ANNUAL_FEE,
+      cardOpened: typeof parsed.cardOpened === 'string' ? parsed.cardOpened : null,
       claims: parsed.claims ?? {},
       overrides: parsed.overrides ?? {},
       oneOffs: parsed.oneOffs ?? {},
@@ -130,6 +143,10 @@ export function useTracker() {
     setState((s) => ({ ...s, annualFee }))
   }, [])
 
+  const setCardOpened = useCallback((cardOpened: string | null) => {
+    setState((s) => ({ ...s, cardOpened }))
+  }, [])
+
   const setOneOffYear = useCallback((id: string, usedYear: number | null) => {
     setState((s) => ({ ...s, oneOffs: { ...s.oneOffs, [id]: { usedYear } } }))
   }, [])
@@ -152,9 +169,22 @@ export function useTracker() {
 
   return {
     state, benefits, claimFor, setUsed, setOverride, resetOverride,
-    setAnnualFee, setOneOffYear, clearYear, importState,
+    setAnnualFee, setCardOpened, setOneOffYear, clearYear, importState,
     oneOffs: ONE_OFFS,
   }
+}
+
+/**
+ * A period belongs to the cardholder if it was still open when the card was.
+ * A period that had already closed before the card opened was never theirs to use,
+ * so it must not count as missed. A period that straddles the open date does count:
+ * the Jul-Dec hotel credit is available to someone who opened the card in November.
+ */
+export function periodWasAvailable(period: PeriodRef, cardOpened: string | null): boolean {
+  if (!cardOpened) return true
+  const opened = new Date(cardOpened + 'T00:00:00')
+  if (Number.isNaN(opened.getTime())) return true
+  return period.end.getTime() >= opened.getTime()
 }
 
 export interface YearTotals {
@@ -173,6 +203,7 @@ export function yearTotals(
   claimFor: (b: string, p: string) => Claim | undefined,
   year: number,
   now: Date,
+  cardOpened: string | null = null,
 ): YearTotals {
   let available = 0
   let availableToDate = 0
@@ -182,6 +213,7 @@ export function yearTotals(
   for (const b of benefits) {
     if (!b.enabled) continue
     for (const period of periodsInYear(b.cadence, year)) {
+      if (!periodWasAvailable(period, cardOpened)) continue
       const amount = amountForPeriod(b, period)
       available += amount
       const started = period.start.getTime() <= now.getTime()

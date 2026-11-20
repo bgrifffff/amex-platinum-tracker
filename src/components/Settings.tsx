@@ -14,6 +14,7 @@ interface Props {
   oneOffs: OneOffBenefit[]
   year: number
   setAnnualFee: (n: number) => void
+  setCardOpened: (d: string | null) => void
   setOverride: (id: string, patch: Override) => void
   resetOverride: (id: string) => void
   setOneOffYear: (id: string, year: number | null) => void
@@ -23,7 +24,7 @@ interface Props {
 
 export function Settings({
   state, benefits, oneOffs, year,
-  setAnnualFee, setOverride, resetOverride, setOneOffYear, clearYear, importState,
+  setAnnualFee, setCardOpened, setOverride, resetOverride, setOneOffYear, clearYear, importState,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -47,6 +48,7 @@ export function Settings({
         importState({
           version: 1,
           annualFee: typeof parsed.annualFee === 'number' ? parsed.annualFee : state.annualFee,
+          cardOpened: typeof parsed.cardOpened === 'string' ? parsed.cardOpened : state.cardOpened,
           claims: parsed.claims ?? {},
           overrides: parsed.overrides ?? {},
           oneOffs: parsed.oneOffs ?? {},
@@ -60,19 +62,48 @@ export function Settings({
   return (
     <Flex direction="column" gap="4">
       <Card size="3">
-        <Heading size="3" mb="1">Annual fee</Heading>
+        <Heading size="3" mb="1">Your card</Heading>
         <Text as="p" size="2" color="gray" mb="3">
-          The number the credits are measured against. Change it if your fee differs or Amex adjusts it.
+          The date you opened the card decides which periods were ever yours. Credits whose period
+          closed before then are shown as a dash rather than counted against you. The fee is what
+          the credits are measured against.
         </Text>
-        <TextField.Root
-          type="number"
-          min="0"
-          step="1"
-          style={{ maxWidth: 140 }}
-          value={state.annualFee}
-          aria-label="Annual fee in dollars"
-          onChange={(e) => setAnnualFee(Math.max(0, Number(e.target.value) || 0))}
-        />
+        <Flex gap="4" wrap="wrap">
+          <Box>
+            <Text as="label" size="1" color="gray" htmlFor="card-opened">Card opened</Text>
+            <Box mt="1">
+              <TextField.Root
+                id="card-opened"
+                type="date"
+                max={new Date().toISOString().slice(0, 10)}
+                style={{ width: 180 }}
+                value={state.cardOpened ?? ''}
+                onChange={(e) => setCardOpened(e.target.value || null)}
+              />
+            </Box>
+          </Box>
+          <Box>
+            <Text as="label" size="1" color="gray" htmlFor="annual-fee">Annual fee</Text>
+            <Box mt="1">
+              <TextField.Root
+                id="annual-fee"
+                type="number"
+                min="0"
+                step="1"
+                style={{ width: 140 }}
+                value={state.annualFee}
+                onChange={(e) => setAnnualFee(Math.max(0, Number(e.target.value) || 0))}
+              />
+            </Box>
+          </Box>
+        </Flex>
+        {state.cardOpened && (
+          <Text as="p" size="1" color="gray" mt="3">
+            Periods that closed before {new Date(state.cardOpened + 'T00:00:00')
+              .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} are
+            excluded. A period that was still open on that date counts in full.
+          </Text>
+        )}
       </Card>
 
       <Card size="3">

@@ -92,8 +92,8 @@ export default function App() {
     }), [t.benefits, claimFor, now])
 
   const totals = useMemo(
-    () => yearTotals(t.benefits, claimFor, year, now),
-    [t.benefits, claimFor, year, now],
+    () => yearTotals(t.benefits, claimFor, year, now, t.state.cardOpened),
+    [t.benefits, claimFor, year, now, t.state.cardOpened],
   )
 
   const openRows = rows.filter((r) => r.used < r.amount)
@@ -273,6 +273,7 @@ export default function App() {
                 now={now}
                 claimFor={claimFor}
                 setUsed={t.setUsed}
+                cardOpened={t.state.cardOpened}
               />
             </Tabs.Content>
 
@@ -302,6 +303,7 @@ export default function App() {
                 oneOffs={t.oneOffs}
                 year={year}
                 setAnnualFee={t.setAnnualFee}
+                setCardOpened={t.setCardOpened}
                 setOverride={t.setOverride}
                 resetOverride={t.resetOverride}
                 setOneOffYear={t.setOneOffYear}

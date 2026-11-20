@@ -1,6 +1,6 @@
 import { Box, Card, Flex, Text } from '@radix-ui/themes'
 import { fmtMoney, monthsIn, periodsInYear } from '../periods'
-import { amountForPeriod, annualValue, type Claim, type LiveBenefit } from '../store'
+import { amountForPeriod, annualValue, periodWasAvailable, type Claim, type LiveBenefit } from '../store'
 
 const MONTH_INITIALS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
 
@@ -10,6 +10,7 @@ interface Props {
   now: Date
   claimFor: (benefitId: string, periodKey: string) => Claim | undefined
   setUsed: (benefitId: string, periodKey: string, used: number) => void
+  cardOpened: string | null
 }
 
 function Swatch({ background, borderColor, opacity }: {
@@ -20,7 +21,7 @@ function Swatch({ background, borderColor, opacity }: {
   return <span className="legend-swatch" style={{ background, borderColor, opacity }} />
 }
 
-export function YearGrid({ benefits, year, now, claimFor, setUsed }: Props) {
+export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened }: Props) {
   const active = benefits.filter((b) => b.enabled)
 
   return (
@@ -40,9 +41,24 @@ export function YearGrid({ benefits, year, now, claimFor, setUsed }: Props) {
                 const periods = periodsInYear(b.cadence, year)
                 const span = monthsIn(b.cadence)
                 let usedTotal = 0
+                let availableTotal = 0
 
                 const cells = periods.map((period) => {
                   const amount = amountForPeriod(b, period)
+
+                  // Before the card existed this period was never on offer. Show a dash
+                  // rather than a red cross, which would read as a credit you wasted.
+                  if (!periodWasAvailable(period, cardOpened)) {
+                    const label = `${b.name} — ${period.label}: before you opened the card`
+                    return (
+                      <td key={period.key} colSpan={span}>
+                        <Text size="2" color="gray" title={label} aria-label={label}
+                          style={{ opacity: .4 }}>&ndash;</Text>
+                      </td>
+                    )
+                  }
+
+                  availableTotal += amount
                   const used = Math.min(claimFor(b.id, period.key)?.used ?? 0, amount)
                   usedTotal += used
                   const future = period.start.getTime() > now.getTime()
@@ -87,7 +103,9 @@ export function YearGrid({ benefits, year, now, claimFor, setUsed }: Props) {
                     {cells}
                     <td>
                       <Text size="2">{fmtMoney(usedTotal)}</Text>
-                      <Text size="2" color="gray"> / {fmtMoney(annualValue(b))}</Text>
+                      <Text size="2" color="gray">
+                        {' / '}{fmtMoney(cardOpened ? availableTotal : annualValue(b))}
+                      </Text>
                     </td>
                   </tr>
                 )
