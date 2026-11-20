@@ -85,7 +85,7 @@ export function BenefitCard({
 
             {/* One badge for state, so "Used" and "awaiting" can never contradict each other. */}
             {confirmed ? (
-              <Badge color="green" variant="solid">&#10003; Credit posted</Badge>
+              <Badge color="green" variant="solid">Credit posted &#10003;</Badge>
             ) : awaiting ? (
               <Badge color="blue" variant="surface">Spent, awaiting credit</Badge>
             ) : tickedOnly ? (
@@ -95,7 +95,7 @@ export function BenefitCard({
                 variant="soft"
                 color={status === 'critical' ? 'red' : status === 'urgent' ? 'amber' : 'gray'}
               >
-                {status === 'critical' || status === 'urgent' ? '! ' : ''}{daysPhrase(daysLeft)}
+                {daysPhrase(daysLeft)}{status === 'critical' || status === 'urgent' ? '!' : ''}
               </Badge>
             )}
 
