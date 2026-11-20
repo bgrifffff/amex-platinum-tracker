@@ -29,6 +29,12 @@ export interface AppState {
   claims: Record<string, Record<string, Claim>>
   overrides: Record<string, Override>
   oneOffs: Record<string, { usedYear: number | null }>
+  /**
+   * benefitId -> true once enrolled in the Amex app. Most credits pay nothing
+   * until enrolled, and nothing in the transaction data reveals enrollment, so
+   * this is the one thing only the cardholder can tell us.
+   */
+  enrolled: Record<string, boolean>
 }
 
 function emptyState(): AppState {
@@ -39,6 +45,7 @@ function emptyState(): AppState {
     claims: {},
     overrides: {},
     oneOffs: {},
+    enrolled: {},
   }
 }
 
@@ -54,6 +61,7 @@ function load(): AppState {
       claims: parsed.claims ?? {},
       overrides: parsed.overrides ?? {},
       oneOffs: parsed.oneOffs ?? {},
+      enrolled: parsed.enrolled ?? {},
     }
   } catch {
     return emptyState()
@@ -63,6 +71,8 @@ function load(): AppState {
 /** A benefit with the user's edits applied. */
 export interface LiveBenefit extends Benefit {
   enabled: boolean
+  /** True when no enrollment is required, or the cardholder has confirmed it. */
+  enrolled: boolean
   /** True when the user has changed the amount or cadence away from the shipped default. */
   edited: boolean
 }
@@ -103,9 +113,10 @@ export function useTracker() {
       amount: o.amount ?? b.amount,
       cadence: o.cadence ?? b.cadence,
       enabled: o.enabled ?? !b.retired,
+      enrolled: !b.enroll || Boolean(state.enrolled[b.id]),
       edited: o.amount !== undefined || o.cadence !== undefined,
     }
-  }), [state.overrides])
+  }), [state.overrides, state.enrolled])
 
   const claimFor = useCallback(
     (benefitId: string, periodKey: string): Claim | undefined => state.claims[benefitId]?.[periodKey],
@@ -147,6 +158,10 @@ export function useTracker() {
     setState((s) => ({ ...s, cardOpened }))
   }, [])
 
+  const setEnrolled = useCallback((benefitId: string, enrolled: boolean) => {
+    setState((s) => ({ ...s, enrolled: { ...s.enrolled, [benefitId]: enrolled } }))
+  }, [])
+
   const setOneOffYear = useCallback((id: string, usedYear: number | null) => {
     setState((s) => ({ ...s, oneOffs: { ...s.oneOffs, [id]: { usedYear } } }))
   }, [])
@@ -169,7 +184,7 @@ export function useTracker() {
 
   return {
     state, benefits, claimFor, setUsed, setOverride, resetOverride,
-    setAnnualFee, setCardOpened, setOneOffYear, clearYear, importState,
+    setAnnualFee, setCardOpened, setEnrolled, setOneOffYear, clearYear, importState,
     oneOffs: ONE_OFFS,
   }
 }

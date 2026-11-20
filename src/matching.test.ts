@@ -6,6 +6,7 @@ import type { LiveBenefit } from './store'
 const benefits: LiveBenefit[] = BENEFITS.map((b) => ({
   ...b,
   enabled: !b.retired,
+  enrolled: true,
   edited: false,
 }))
 

@@ -6,6 +6,7 @@ import { periodWasAvailable, yearTotals, type Claim, type LiveBenefit } from './
 const benefits: LiveBenefit[] = BENEFITS.map((b) => ({
   ...b,
   enabled: !b.retired,
+  enrolled: true,
   edited: false,
 }))
 

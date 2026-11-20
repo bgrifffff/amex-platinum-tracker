@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Box, Button, Card, Flex, Separator, Text, TextField } from '@radix-ui/themes'
+import { Badge, Box, Button, Callout, Card, Flex, Link, Separator, Text, TextField } from '@radix-ui/themes'
 import { CADENCE_LABEL, fmtMoney, type PeriodRef } from '../periods'
 import type { LiveBenefit } from '../store'
 
@@ -51,10 +51,11 @@ interface Props {
   awaiting?: boolean
   /** No statement credit can ever confirm this benefit. */
   manualOnly?: string
+  onSetEnrolled: (enrolled: boolean) => void
 }
 
 export function BenefitCard({
-  benefit, period, amount, used, daysLeft, onSetUsed, auto, awaiting, manualOnly,
+  benefit, period, amount, used, daysLeft, onSetUsed, onSetEnrolled, auto, awaiting, manualOnly,
 }: Props) {
   const [showNote, setShowNote] = useState(false)
   const [partial, setPartial] = useState('')
@@ -99,7 +100,8 @@ export function BenefitCard({
             )}
 
             {manualOnly && <Badge color="gray" variant="outline">No credit to find</Badge>}
-            {benefit.enroll && <Badge color="indigo" variant="surface">Enrollment needed</Badge>}
+            {/* An unenrolled credit pays nothing, so this outranks the deadline. */}
+            {!benefit.enrolled && <Badge color="red" variant="solid">Not enrolled</Badge>}
             {/* Amber is reserved for time pressure, so data uncertainty reads gray. */}
             {benefit.confidence === 'check' && <Badge color="gray" variant="outline">Verify amount</Badge>}
           </Flex>
@@ -119,6 +121,18 @@ export function BenefitCard({
           <Text as="div" size="1" color="gray">{period.label}</Text>
         </Box>
       </Flex>
+
+      {!benefit.enrolled && (
+        <Callout.Root color="red" size="1" mt="3">
+          <Callout.Text>
+            Amex pays this credit only after you enroll, which takes a click in the Amex app.
+            Spend against it before then and you get nothing back.{' '}
+            <Link href="#" onClick={(e) => { e.preventDefault(); onSetEnrolled(true) }}>
+              I&rsquo;ve enrolled
+            </Link>
+          </Callout.Text>
+        </Callout.Root>
+      )}
 
       <Flex gap="2" mt="3" align="center" wrap="wrap">
         {confirmed ? (
@@ -161,6 +175,11 @@ export function BenefitCard({
           </>
         )}
         <Box style={{ flex: 1 }} />
+        {benefit.enroll && benefit.enrolled && (
+          <Button size="2" variant="ghost" color="gray" onClick={() => onSetEnrolled(false)}>
+            Not enrolled
+          </Button>
+        )}
         <Button size="2" variant="ghost" color="gray" onClick={() => setShowNote((v) => !v)} aria-expanded={showNote}>
           {showNote ? 'Hide details' : 'Details'}
         </Button>
