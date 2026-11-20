@@ -1,10 +1,17 @@
-import { Badge, Box, Card, Flex, Heading, Text } from '@radix-ui/themes'
+import { Box, Card, Flex, Heading, Text } from '@radix-ui/themes'
 import {
   CADENCE_LABEL, fmtMoney, periodsInYear, type Cadence, type PeriodRef,
 } from '../periods'
 import { amountForPeriod, periodWasAvailable, type Claim, type LiveBenefit } from '../store'
 
 const CADENCE_ORDER: Cadence[] = ['monthly', 'quarterly', 'semiannual', 'annual']
+
+const CADENCE_NOUN: Record<Cadence, string> = {
+  monthly: 'month',
+  quarterly: 'quarter',
+  semiannual: 'half',
+  annual: 'year',
+}
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -42,17 +49,22 @@ export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened }:
         if (rows.length === 0) return null
 
         const periods = periodsInYear(cadence, year)
-        const currentIndex = periods.findIndex(
+        const currentIndex = periods.length === 1 ? -1 : periods.findIndex(
+          (p) => p.start.getTime() <= now.getTime() && p.end.getTime() >= now.getTime(),
+        )
+        const openPeriod = periods.find(
           (p) => p.start.getTime() <= now.getTime() && p.end.getTime() >= now.getTime(),
         )
 
         return (
           <Card size="2" key={cadence}>
             <Flex justify="between" align="baseline" mb="3" wrap="wrap" gap="2">
-              <Heading size="3">{CADENCE_LABEL[cadence]}</Heading>
-              {currentIndex >= 0 && (
+              <Heading as="h2" size="3">{CADENCE_LABEL[cadence]}</Heading>
+              {openPeriod && (
                 <Text size="1" color="gray">
-                  Now in {columnLabel(cadence, currentIndex)}, closes {deadline(periods[currentIndex])}
+                  {currentIndex >= 0
+                    ? `Now in ${columnLabel(cadence, currentIndex)}, closes ${deadline(openPeriod)}`
+                    : `Closes ${deadline(openPeriod)}`}
                 </Text>
               )}
             </Flex>
@@ -131,7 +143,7 @@ export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened }:
                         <th scope="row">
                           <Text as="div" size="2">{b.name}</Text>
                           <Text as="div" size="1" color="gray">
-                            {fmtMoney(b.amount)} each {cadence === 'annual' ? 'year' : 'period'}
+                            {fmtMoney(b.amount)} each {CADENCE_NOUN[cadence]}
                           </Text>
                         </th>
                         {cells}
@@ -152,36 +164,37 @@ export function YearGrid({ benefits, year, now, claimFor, setUsed, cardOpened }:
       <Card size="2">
         <Flex gap="4" wrap="wrap" mb="2">
           {[
-            { label: 'Used in full', background: 'var(--green-9)', borderColor: 'var(--green-9)' },
-            { label: 'Partly used', background: 'var(--green-a5)', borderColor: 'var(--green-8)' },
-            { label: 'Closed unused', background: 'var(--red-a3)', borderColor: 'var(--red-a6)' },
-            { label: 'Open now', background: 'var(--gray-a2)' },
-            { label: 'Not open yet', background: 'var(--gray-a2)', opacity: .35 },
+            { cls: 'used', glyph: '\u2713', label: 'Logged in full' },
+            { cls: 'partial', glyph: '\u00bd', label: 'Partly logged' },
+            { cls: 'missed', glyph: '\u2715', label: 'Expired unlogged' },
+            { cls: '', glyph: '', label: 'Open now' },
           ].map((l) => (
             <Flex key={l.label} align="center" gap="2">
-              <span className="legend-swatch"
-                style={{ background: l.background, borderColor: l.borderColor, opacity: l.opacity }} />
+              {/* The legend keys are real pips, so they cannot drift from the grid. */}
+              <span className={`pip ${l.cls}`} aria-hidden>{l.glyph}</span>
               <Text size="1" color="gray">{l.label}</Text>
             </Flex>
           ))}
+          <Flex align="center" gap="2">
+            <span className="pip" style={{ opacity: .35 }} aria-hidden />
+            <Text size="1" color="gray">Not open yet</Text>
+          </Flex>
           <Flex align="center" gap="2">
             <Text size="1" color="gray" style={{ opacity: .4 }}>&ndash;</Text>
             <Text size="1" color="gray">Before your card</Text>
           </Flex>
         </Flex>
         <Text as="p" size="1" color="gray">
-          The highlighted column is the period you are in now. Click any open square to toggle it;
-          hover for the exact deadline. Partial amounts go in on the Now tab.
+          A highlighted column is the period you are in now. Clicking a square logs that
+          period&rsquo;s whole credit as spent, and clicking again clears it. Partial amounts go in
+          on the Now tab, and hovering a square shows its exact deadline.
         </Text>
       </Card>
 
-      <Flex align="center" gap="2">
-        <Badge color="amber" variant="soft">Tip</Badge>
-        <Text size="2" color="gray">
-          Quarterly credits do not roll over. Each unused square is money gone on the last day of
-          that quarter.
-        </Text>
-      </Flex>
+      <Text size="2" color="gray">
+        No credit rolls over. Every unused square is money gone on the last day of that month,
+        quarter or half.
+      </Text>
     </Flex>
   )
 }

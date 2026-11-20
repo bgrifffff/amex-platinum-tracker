@@ -3,21 +3,23 @@ import { Badge, Box, Button, Card, Flex, Separator, Text, TextField } from '@rad
 import { CADENCE_LABEL, fmtMoney, type PeriodRef } from '../periods'
 import type { LiveBenefit } from '../store'
 
-/** Days-remaining thresholds at which a period starts to look worrying. */
-const URGENCY: Record<string, { urgent: number; critical: number }> = {
-  monthly: { urgent: 8, critical: 3 },
-  quarterly: { urgent: 21, critical: 7 },
-  semiannual: { urgent: 45, critical: 14 },
-  annual: { urgent: 60, critical: 21 },
-}
+/**
+ * Urgency is absolute calendar distance, not a fraction of the period.
+ * Money that disappears in a week is equally urgent whether its credit was
+ * monthly or annual, and grading per cadence made a $25 credit with 10 days
+ * left look calmer than a $300 one with 41.
+ */
+export const CRITICAL_DAYS = 7
+export const URGENT_DAYS = 30
+/** The window "Closing soon" sums over. */
+export const AT_RISK_DAYS = 45
 
 export type Status = 'done' | 'partial' | 'critical' | 'urgent' | 'open'
 
-export function statusOf(amount: number, used: number, daysLeft: number, cadence: string): Status {
+export function statusOf(amount: number, used: number, daysLeft: number): Status {
   if (used >= amount) return 'done'
-  const t = URGENCY[cadence] ?? URGENCY.annual
-  if (daysLeft <= t.critical) return 'critical'
-  if (daysLeft <= t.urgent) return 'urgent'
+  if (daysLeft <= CRITICAL_DAYS) return 'critical'
+  if (daysLeft <= URGENT_DAYS) return 'urgent'
   if (used > 0) return 'partial'
   return 'open'
 }
@@ -32,7 +34,7 @@ const EDGE: Record<Status, string> = {
   done: 'var(--green-9)',
   critical: 'var(--red-9)',
   urgent: 'var(--amber-9)',
-  partial: 'var(--gray-a6)',
+  partial: 'var(--green-a7)',
   open: 'var(--gray-a6)',
 }
 
@@ -57,70 +59,109 @@ export function BenefitCard({
   const [showNote, setShowNote] = useState(false)
   const [partial, setPartial] = useState('')
 
-  const status = statusOf(amount, used, daysLeft, benefit.cadence)
+  const status = statusOf(amount, used, daysLeft)
   const remaining = Math.max(0, amount - used)
+  // A posted credit is proof. A tick of my own only records that I spent the money.
+  const confirmed = Boolean(auto)
+  const tickedOnly = status === 'done' && !confirmed
+
+  const partialIsValid = partial !== '' && Number.isFinite(Number(partial)) && Number(partial) > 0
 
   function applyPartial() {
-    const n = Number(partial)
-    if (!Number.isFinite(n) || n <= 0) return
-    onSetUsed(Math.min(amount, used + n))
+    if (!partialIsValid) return
+    onSetUsed(Math.min(amount, used + Number(partial)))
     setPartial('')
   }
 
   return (
-    <Card size="2" style={{ borderLeft: `3px solid ${EDGE[status]}` }}>
+    // Inset shadow rather than a border, so the rail follows the card's radius.
+    <Card size="2" style={{ boxShadow: `inset 4px 0 0 ${EDGE[status]}` }}>
       <Flex justify="between" gap="4" align="start" wrap="wrap">
         <Box style={{ flex: '1 1 260px' }}>
           <Text as="div" weight="medium" size="3">{benefit.name}</Text>
           <Flex gap="2" mt="2" wrap="wrap" align="center">
             <Badge color="gray" variant="soft">{CADENCE_LABEL[benefit.cadence]}</Badge>
-            <Badge
-              variant="soft"
-              color={status === 'done' ? 'green' : status === 'critical' ? 'red' : status === 'urgent' ? 'amber' : 'gray'}
-            >
-              {status === 'done' ? 'Used' : daysPhrase(daysLeft)}
-            </Badge>
-            {auto && <Badge color="green" variant="surface">Credit posted</Badge>}
-            {awaiting && !auto && <Badge color="amber" variant="surface">Spent, awaiting credit</Badge>}
+
+            {/* One badge for state, so "Used" and "awaiting" can never contradict each other. */}
+            {confirmed ? (
+              <Badge color="green" variant="solid">&#10003; Credit posted</Badge>
+            ) : awaiting ? (
+              <Badge color="blue" variant="surface">Spent, awaiting credit</Badge>
+            ) : tickedOnly ? (
+              <Badge color="green" variant="surface">Logged by hand</Badge>
+            ) : (
+              <Badge
+                variant="soft"
+                color={status === 'critical' ? 'red' : status === 'urgent' ? 'amber' : 'gray'}
+              >
+                {status === 'critical' || status === 'urgent' ? '! ' : ''}{daysPhrase(daysLeft)}
+              </Badge>
+            )}
+
+            {manualOnly && <Badge color="gray" variant="outline">No credit to find</Badge>}
             {benefit.enroll && <Badge color="indigo" variant="surface">Enrollment needed</Badge>}
-            {benefit.confidence === 'check' && <Badge color="amber" variant="outline">Verify amount</Badge>}
+            {/* Amber is reserved for time pressure, so data uncertainty reads gray. */}
+            {benefit.confidence === 'check' && <Badge color="gray" variant="outline">Verify amount</Badge>}
           </Flex>
         </Box>
 
         <Box style={{ textAlign: 'right' }}>
-          <Text as="div" size="5" weight="bold" color={used > 0 ? 'green' : undefined}>
-            {used > 0 ? `${fmtMoney(used)} / ${fmtMoney(amount)}` : fmtMoney(amount)}
+          {/* Green only once the whole credit is accounted for; a partial is not a win. */}
+          <Text as="div" size="5" weight="bold" className="num"
+            color={used >= amount ? 'green' : undefined}>
+            {used > 0 ? (
+              <>
+                <Text color={used >= amount ? 'green' : 'gray'}>{fmtMoney(used)}</Text>
+                {' / '}{fmtMoney(amount)}
+              </>
+            ) : fmtMoney(amount)}
           </Text>
           <Text as="div" size="1" color="gray">{period.label}</Text>
         </Box>
       </Flex>
 
       <Flex gap="2" mt="3" align="center" wrap="wrap">
-        {status === 'done' ? (
-          <Button size="1" variant="soft" onClick={() => onSetUsed(0)}>Undo</Button>
+        {confirmed ? (
+          // Clearing a manual claim cannot remove a credit Amex actually posted,
+          // so offering the button would be offering an action that does nothing.
+          <Text size="1" color="gray">Amex posted this credit, so it can&rsquo;t be cleared by hand.</Text>
+        ) : status === 'done' ? (
+          <Button size="2" variant="soft" onClick={() => onSetUsed(0)}>Clear</Button>
         ) : (
           <>
-            <Button size="1" onClick={() => onSetUsed(amount)}>
-              Mark {fmtMoney(remaining)} used
+            <Button size="2" onClick={() => onSetUsed(amount)}>
+              Log {fmtMoney(remaining)} spent
             </Button>
             <TextField.Root
-              size="1"
+              size="2"
               type="number"
               min="0"
               step="0.01"
-              placeholder="Partial"
-              style={{ width: 92 }}
+              placeholder="Add $"
+              style={{ width: 104 }}
               value={partial}
-              aria-label={`Partial amount used for ${benefit.name}`}
+              aria-label={`Amount to add to ${benefit.name}, on top of the ${fmtMoney(used)} already logged`}
               onChange={(e) => setPartial(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') applyPartial() }}
-            />
-            {partial !== '' && <Button size="1" variant="soft" onClick={applyPartial}>Add</Button>}
-            {used > 0 && <Button size="1" variant="ghost" color="gray" onClick={() => onSetUsed(0)}>Reset</Button>}
+            >
+              <TextField.Slot>$</TextField.Slot>
+            </TextField.Root>
+            {/* Always mounted, so the commit control never appears out of nowhere. */}
+            <Button size="2" variant="soft" disabled={!partialIsValid} onClick={applyPartial}>Add</Button>
+            {used > 0 && (
+              <>
+                <Text size="1" color="gray" className="num">
+                  {partialIsValid
+                    ? `${fmtMoney(used)} + ${fmtMoney(Number(partial))} = ${fmtMoney(Math.min(amount, used + Number(partial)))}`
+                    : `${fmtMoney(used)} logged so far`}
+                </Text>
+                <Button size="2" variant="ghost" color="gray" onClick={() => onSetUsed(0)}>Clear</Button>
+              </>
+            )}
           </>
         )}
         <Box style={{ flex: 1 }} />
-        <Button size="1" variant="ghost" color="gray" onClick={() => setShowNote((v) => !v)} aria-expanded={showNote}>
+        <Button size="2" variant="ghost" color="gray" onClick={() => setShowNote((v) => !v)} aria-expanded={showNote}>
           {showNote ? 'Hide details' : 'Details'}
         </Button>
       </Flex>

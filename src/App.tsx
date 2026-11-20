@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Badge, Box, Button, Card, Container, Flex, Heading, Progress, Select, Separator, Tabs, Text, Theme,
 } from '@radix-ui/themes'
-import { BenefitCard, statusOf } from './components/BenefitCard'
+import { AT_RISK_DAYS, BenefitCard } from './components/BenefitCard'
 import { YearGrid } from './components/YearGrid'
 import { Settings } from './components/Settings'
 import { Connection } from './components/Connection'
@@ -40,11 +40,18 @@ function useAppearance() {
   return { appearance, toggle: () => setAppearance((a) => (a === 'dark' ? 'light' : 'dark')) }
 }
 
-function Stat({ label, value, color }: { label: string; value: string; color?: 'amber' | 'red' }) {
+function Stat({ label, value, color, lead }: {
+  label: string
+  value: string
+  color?: 'amber' | 'red'
+  /** Foreground stats carry consequence; reference stats sit back. */
+  lead?: boolean
+}) {
   return (
     <Box>
       <Text as="div" size="1" color="gray">{label}</Text>
-      <Text as="div" size="4" weight="bold" color={color} mt="1">{value}</Text>
+      <Text as="div" size={lead ? '6' : '3'} weight="bold" color={color} mt="1"
+        className="num">{value}</Text>
     </Box>
   )
 }
@@ -53,7 +60,18 @@ export default function App() {
   const t = useTracker()
   const { appearance, toggle } = useAppearance()
   const [tab, setTab] = useState<Tab>('now')
-  const now = useMemo(() => new Date(), [])
+  // A countdown app must not freeze its clock at mount: a tab left open overnight
+  // would keep reporting yesterday's days-left and never roll into the next period.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const tick = () => setNow(new Date())
+    const id = setInterval(tick, 60_000)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', tick)
+    }
+  }, [])
   const [year, setYear] = useState(now.getFullYear())
 
   const bridge = useBridge()
@@ -99,9 +117,17 @@ export default function App() {
   const openRows = rows.filter((r) => r.used < r.amount)
   const doneRows = rows.filter((r) => r.used >= r.amount)
   const openNow = openRows.reduce((sum, r) => sum + (r.amount - r.used), 0)
+  // Same absolute-time rule the cards colour by, so the total and the badges agree.
   const atRisk = openRows
-    .filter((r) => ['urgent', 'critical'].includes(statusOf(r.amount, r.used, r.left, r.benefit.cadence)))
+    .filter((r) => r.left <= AT_RISK_DAYS)
     .reduce((sum, r) => sum + (r.amount - r.used), 0)
+
+  /** How much of the year's logged total Amex has actually paid back. */
+  const confirmed = useMemo(() => {
+    let sum = 0
+    for (const [, amount] of autoTotals) sum += amount
+    return Math.min(sum, totals.used)
+  }, [autoTotals, totals.used])
 
   const feePct = Math.min(100, (totals.used / Math.max(1, t.state.annualFee)) * 100)
   const covered = totals.used >= t.state.annualFee
@@ -117,6 +143,12 @@ export default function App() {
   }, [rows])
 
   const sortedOpen = [...openRows].sort((a, b) => a.left - b.left || b.amount - a.amount)
+
+  // "Full-year value" was a lie once an opening date excluded earlier periods.
+  const cardOpenedLabel = t.state.cardOpened
+    ? `Offered since ${new Date(t.state.cardOpened + 'T00:00:00')
+        .toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+    : `Offered in ${year}`
 
   const card = (r: Row) => {
     const key = r.benefit.id + '|' + r.period.key
@@ -138,10 +170,10 @@ export default function App() {
 
   return (
     <Theme appearance={appearance} accentColor="indigo" grayColor="slate" radius="medium">
-      <Container size="3" px="4" py="5" pb="9">
+      <Container size="3" px="4" py="5" pb="9" asChild><main>
         <Flex justify="between" align="start" gap="4" wrap="wrap" mb="4">
           <Box>
-            <Heading size="6">Platinum Benefits Tracker</Heading>
+            <Heading as="h1" size="6">Platinum Benefits Tracker</Heading>
             <Text as="div" size="2" color="gray" mt="1">
               US Consumer Platinum &middot;{' '}
               {now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -167,14 +199,21 @@ export default function App() {
             <Box>
               <Text as="div" size="2" color="gray">Credits logged in {year}</Text>
               <Flex align="baseline" gap="2" mt="1">
-                <Text size="8" weight="bold">{fmtMoney(totals.used)}</Text>
+                <Text size="8" weight="bold" className="num">{fmtMoney(totals.used)}</Text>
                 <Text size="3" color="gray">of {fmtMoney(t.state.annualFee)} fee</Text>
               </Flex>
+              <Text as="div" size="1" color="gray" mt="1">
+                {totals.used === 0
+                  ? 'Nothing logged yet'
+                  : confirmed >= totals.used
+                    ? 'All of it confirmed by a posted credit'
+                    : `${fmtMoney(confirmed)} confirmed by a posted credit, ${fmtMoney(totals.used - confirmed)} logged by hand`}
+              </Text>
             </Box>
             <Badge size="2" color={covered ? 'green' : 'amber'} variant="soft">
               {covered
-                ? `Fee covered, ${fmtMoney(totals.used - t.state.annualFee)} past it`
-                : `${fmtMoney(t.state.annualFee - totals.used)} to break even`}
+                ? `Logged past the fee, ${fmtMoney(totals.used - t.state.annualFee)} over`
+                : `${fmtMoney(t.state.annualFee - totals.used)} short of the fee`}
             </Badge>
           </Flex>
 
@@ -182,17 +221,19 @@ export default function App() {
             value={feePct}
             size="2"
             mt="3"
-            color={covered ? 'indigo' : 'green'}
-            aria-label={`${Math.round(feePct)} percent of the annual fee recovered`}
+            color={covered ? 'green' : 'indigo'}
+            aria-label={`${Math.round(feePct)} percent of the annual fee logged`}
           />
 
           <Separator size="4" my="4" />
 
-          <Flex gap="6" wrap="wrap">
-            <Stat label="Open right now" value={fmtMoney(openNow)} />
-            <Stat label="Closing soon" value={fmtMoney(atRisk)} color={atRisk > 0 ? 'amber' : undefined} />
-            <Stat label={`Missed in ${year}`} value={fmtMoney(totals.forfeited)} color={totals.forfeited > 0 ? 'red' : undefined} />
-            <Stat label="Full-year value" value={fmtMoney(totals.available)} />
+          <Flex gap="6" wrap="wrap" align="end">
+            <Stat lead label="Closing within 45 days" value={fmtMoney(atRisk)}
+              color={atRisk > 0 ? 'amber' : undefined} />
+            <Stat lead label={`Expired unlogged in ${year}`} value={fmtMoney(totals.forfeited)}
+              color={totals.forfeited > 0 ? 'red' : undefined} />
+            <Stat label="Unlogged in total" value={fmtMoney(openNow)} />
+            <Stat label={cardOpenedLabel} value={fmtMoney(totals.available)} />
           </Flex>
         </Card>
 
@@ -201,15 +242,17 @@ export default function App() {
             <Tabs.Trigger value="now">
               Now
               {openRows.length > 0 && (
-                <Badge ml="2" size="1" variant="soft" color="gray">{openRows.length}</Badge>
+                <Badge ml="2" size="1" variant="soft" color={atRisk > 0 ? 'amber' : 'gray'}>
+                  {openRows.length}
+                </Badge>
               )}
             </Tabs.Trigger>
-            <Tabs.Trigger value="all">All benefits</Tabs.Trigger>
-            <Tabs.Trigger value="year">{year} grid</Tabs.Trigger>
+            <Tabs.Trigger value="all">By category</Tabs.Trigger>
+            <Tabs.Trigger value="year">Grid</Tabs.Trigger>
             <Tabs.Trigger value="sync">
               Sync
               {match.unclaimed.length > 0 && (
-                <Badge ml="2" size="1" variant="soft" color="amber">{match.unclaimed.length}</Badge>
+                <Badge ml="2" size="1" variant="soft" color="gray">{match.unclaimed.length}</Badge>
               )}
             </Tabs.Trigger>
             <Tabs.Trigger value="settings">Settings</Tabs.Trigger>
@@ -316,13 +359,15 @@ export default function App() {
 
         <Separator size="4" my="6" />
         <Text as="p" size="1" color="gray">
-          Benefit amounts are seeded from public 2026 write-ups and are not from American Express.
-          Several sources disagreed with each other, so anything marked &ldquo;Verify amount&rdquo; is a
-          best guess until you check it against your own statement or the Amex app. Credits also depend
-          on enrollment and on your renewal date, neither of which this app can see. Nothing here is
-          logged automatically: you are recording what you spent, not what Amex has actually reimbursed.
+          Two different things can mark a credit used here. A tick of your own only records that you
+          spent the money. A credit badged &ldquo;Credit posted&rdquo; is one Plaid found on your
+          statement, which means Amex actually paid it back. Where both exist, the larger wins, so
+          treat anything not badged as unconfirmed. Benefit amounts come from public 2026 write-ups
+          rather than from American Express, and the sources disagreed, so anything marked
+          &ldquo;Verify amount&rdquo; is a guess until you check your own statement. Credits also
+          depend on enrollment, which this app can&rsquo;t see at all.
         </Text>
-      </Container>
+      </main></Container>
     </Theme>
   )
 }

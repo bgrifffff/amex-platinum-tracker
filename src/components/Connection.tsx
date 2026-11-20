@@ -87,14 +87,29 @@ export function Connection({
 
   return (
     <Flex direction="column" gap="4">
+      {/*
+        Sandbox transactions are invented by Plaid. They match, earn green "Credit posted"
+        badges and inflate the headline, with nothing otherwise saying the money is fictional.
+      */}
+      {status?.linked && status.env === 'sandbox' && (
+        <Callout.Root color="amber" role="status">
+          <Callout.Text>
+            Plaid sandbox: every transaction below is invented test data, so any
+            &ldquo;Credit posted&rdquo; badge and the totals on every other tab are fake. Set{' '}
+            <Code>PLAID_ENV=production</Code> before trusting these numbers, and disconnect to
+            clear the test data.
+          </Callout.Text>
+        </Callout.Root>
+      )}
+
       {error && online !== false && (
-        <Callout.Root color="red">
+        <Callout.Root color="red" role="alert">
           <Callout.Text>{error}</Callout.Text>
         </Callout.Root>
       )}
 
       <Card size="3">
-        <Heading size="3" mb="1">Amex connection</Heading>
+        <Heading as="h2" size="3" mb="1">Amex connection</Heading>
         {online === false ? (
           <>
             <Text as="p" size="2" color="gray" mb="3">
@@ -136,12 +151,12 @@ export function Connection({
 
       {status?.linked && (
         <Card size="3">
-          <Heading size="3" mb="1">What the sync found</Heading>
+          <Heading as="h2" size="3" mb="1">What the sync found</Heading>
           <Text as="p" size="2" color="gray">
             {match.credits.length} statement {match.credits.length === 1 ? 'credit' : 'credits'} matched
             to a benefit, {match.pending.length} qualifying{' '}
             {match.pending.length === 1 ? 'purchase' : 'purchases'} still waiting on a credit,{' '}
-            {match.unclaimed.length} unrecognised{' '}
+            {match.unclaimed.length} unrecognized{' '}
             {match.unclaimed.length === 1 ? 'credit' : 'credits'} out of {txns.length} transactions.
           </Text>
           {match.credits.length > 0 && (
@@ -163,10 +178,10 @@ export function Connection({
 
       {match.unclaimed.length > 0 && (
         <Card size="3">
-          <Heading size="3" mb="1">Credits the app did not recognise</Heading>
+          <Heading as="h2" size="3" mb="1">Credits the matcher didn’t recognize</Heading>
           <Text as="p" size="2" color="gray" mb="3">
             Amex does not publish the wording it uses on benefit credits, so some will not match the
-            built-in rules. Tell the app which benefit each one belongs to and it will recognise that
+            built-in rules. Tell the app which benefit each one belongs to and it will recognize that
             wording from now on.
           </Text>
           {match.unclaimed.slice(0, 12).map((t, i) => (
@@ -180,7 +195,7 @@ export function Connection({
                   </Text>
                 </Box>
                 <Select.Root onValueChange={(v) => teach(t.name, v)}>
-                  <Select.Trigger placeholder="Assign to&hellip;" aria-label={`Assign ${t.name} to a benefit`} />
+                  <Select.Trigger placeholder="Pick a benefit" aria-label={`Assign ${t.name} to a benefit`} />
                   <Select.Content>
                     {enabled.map((b) => <Select.Item key={b.id} value={b.id}>{b.name}</Select.Item>)}
                   </Select.Content>
@@ -193,7 +208,7 @@ export function Connection({
 
       {learned.length > 0 && (
         <Card size="3">
-          <Heading size="3" mb="3">Wording you have taught it</Heading>
+          <Heading as="h2" size="3" mb="3">Wording you’ve taught the matcher</Heading>
           {learned.map((l, i) => {
             const b = benefits.find((x) => x.id === l.benefitId)
             return (
@@ -215,7 +230,7 @@ export function Connection({
       )}
 
       <Card size="3">
-        <Heading size="3" mb="2">What syncing cannot tell you</Heading>
+        <Heading as="h2" size="3" mb="2">What syncing cannot tell you</Heading>
         {Object.entries(UNDETECTABLE).map(([id, why]) => (
           <Text as="p" size="2" color="gray" key={id} mb="2">{why}</Text>
         ))}

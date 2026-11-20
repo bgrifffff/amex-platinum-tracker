@@ -41,7 +41,7 @@ export const BENEFITS: Benefit[] = [
     category: 'Travel',
     enroll: false,
     confidence: 'verified',
-    note: 'Prepaid booking through Amex Travel. Fine Hotels + Resorts requires a two-night minimum; The Hotel Collection does too. Book by Jun 30 and Dec 31 — the halves do not roll over.',
+    note: 'Prepaid booking through Amex Travel. Fine Hotels + Resorts requires a two-night minimum; The Hotel Collection does too. Book by Jun 30 and Dec 31. The halves don\u2019t roll over.',
   },
   {
     id: 'airline',
@@ -92,7 +92,7 @@ export const BENEFITS: Benefit[] = [
     enroll: false,
     confidence: 'verified',
     monthOverrides: { 11: 35 },
-    note: 'Add the Platinum as a payment method in your Uber account to receive it. $15 a month plus a $20 bonus in December. Unused Uber Cash is forfeited at month end — it does not accumulate.',
+    note: 'Add the Platinum as a payment method in your Uber account to receive it. $15 a month plus a $20 bonus in December. Unused Uber Cash is forfeited at month end. It doesn\u2019t accumulate.',
   },
   {
     id: 'uber-one',
@@ -122,7 +122,7 @@ export const BENEFITS: Benefit[] = [
     category: 'Wellness',
     enroll: true,
     confidence: 'check',
-    note: 'Up to $300 a year on Equinox club memberships or Equinox+. Reported as both a monthly $25 and an annual $300 — adjust the cadence if your statement differs.',
+    note: 'Up to $300 a year on Equinox club memberships or Equinox+. Reported as both a monthly $25 and an annual $300. Adjust the cadence if your statement differs.',
   },
   {
     id: 'walmart-plus',
@@ -133,7 +133,7 @@ export const BENEFITS: Benefit[] = [
     enroll: false,
     confidence: 'check',
     retired: true,
-    note: 'Covers a monthly Walmart+ membership (not the annual plan). Only one 2026 source still lists this; others have dropped it. Off by default — turn it on if it is still on your card.',
+    note: 'Covers a monthly Walmart+ membership (not the annual plan). Only one 2026 source still lists this; others have dropped it. Off by default. Turn it on if it\u2019s still on your card.',
   },
   {
     id: 'saks',

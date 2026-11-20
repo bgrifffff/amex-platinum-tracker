@@ -40,7 +40,7 @@ this stays true.
 | `server/` | Express bridge to Plaid. Holds the client secret and access token. |
 
 The bridge exists so the Plaid secret and access token never reach the browser. It stores
-one access token in `data/store.json` (gitignored, mode 600) and exposes only sanitised
+one access token in `data/store.json` (gitignored, mode 600) and exposes only sanitized
 transaction fields to the client. It uses Plaid's `/transactions/sync` with a stored cursor.
 
 ## Plaid usage

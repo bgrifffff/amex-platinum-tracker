@@ -34,8 +34,11 @@ export function Settings({
     const a = document.createElement('a')
     a.href = url
     a.download = `platinum-tracker-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    a.remove()
+    // Revoking synchronously cancels the download in Firefox and some Safari versions.
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   function importJson(file: File) {
@@ -45,6 +48,12 @@ export function Settings({
         if (typeof parsed !== 'object' || parsed === null || !('claims' in parsed)) {
           throw new Error('not a tracker file')
         }
+        const incoming = Object.keys(parsed.claims ?? {}).length
+        const current = Object.keys(state.claims).length
+        if (!confirm(
+          `Replace everything with this file? Your ${current} logged benefits, amounts and `
+          + `settings go away and ${incoming} from the file take their place. This cannot be undone.`
+        )) return
         importState({
           version: 1,
           annualFee: typeof parsed.annualFee === 'number' ? parsed.annualFee : state.annualFee,
@@ -54,7 +63,7 @@ export function Settings({
           oneOffs: parsed.oneOffs ?? {},
         })
       } catch {
-        alert('That file does not look like a tracker export.')
+        alert('That file is not a tracker export. Look for the platinum-tracker-YYYY-MM-DD.json that Export JSON writes.')
       }
     })
   }
@@ -62,7 +71,7 @@ export function Settings({
   return (
     <Flex direction="column" gap="4">
       <Card size="3">
-        <Heading size="3" mb="1">Your card</Heading>
+        <Heading as="h2" size="3" mb="1">Your card</Heading>
         <Text as="p" size="2" color="gray" mb="3">
           The date you opened the card decides which periods were ever yours. Credits whose period
           closed before then are shown as a dash rather than counted against you. The fee is what
@@ -107,7 +116,7 @@ export function Settings({
       </Card>
 
       <Card size="3">
-        <Heading size="3" mb="1">Benefits and amounts</Heading>
+        <Heading as="h2" size="3" mb="1">Benefits and amounts</Heading>
         <Text as="p" size="2" color="gray" mb="3">
           Amounts came from public 2026 write-ups, and a few of them disagreed with each other. Your
           statement is the authority: correct anything that is wrong here and the totals follow.
@@ -123,7 +132,7 @@ export function Settings({
                 onCheckedChange={(checked) => setOverride(b.id, { enabled: checked })}
               />
               <Box style={{ flex: '1 1 220px' }}>
-                <Text as="div" size="2" weight="medium">{b.name}</Text>
+                <Text as="div" size="2" weight="medium" color={b.enabled ? undefined : 'gray'}>{b.name}</Text>
                 <Flex gap="2" align="center" mt="1" wrap="wrap">
                   <Text size="1" color="gray">{fmtMoney(annualValue(b))} a year</Text>
                   {b.confidence === 'check' && <Badge size="1" color="amber" variant="outline">verify</Badge>}
@@ -145,7 +154,7 @@ export function Settings({
                 value={b.cadence}
                 onValueChange={(v) => setOverride(b.id, { cadence: v as Cadence })}
               >
-                <Select.Trigger aria-label={`Cadence for ${b.name}`} />
+                <Select.Trigger aria-label={`Cadence for ${b.name}`} style={{ width: 132 }} />
                 <Select.Content>
                   {CADENCES.map((c) => (
                     <Select.Item key={c} value={c}>{CADENCE_LABEL[c]}</Select.Item>
@@ -163,9 +172,9 @@ export function Settings({
       </Card>
 
       <Card size="3">
-        <Heading size="3" mb="1">Multi-year credits</Heading>
+        <Heading as="h2" size="3" mb="1">Multi-year credits</Heading>
         <Text as="p" size="2" color="gray" mb="3">
-          These do not reset every year, so they sit outside the totals above. Record the year you
+          Multi-year credits don't reset annually, so they stay out of the annual fee math. Record the year you
           last claimed one.
         </Text>
         {oneOffs.map((o) => {
@@ -206,7 +215,7 @@ export function Settings({
       </Card>
 
       <Card size="3">
-        <Heading size="3" mb="1">Your data</Heading>
+        <Heading as="h2" size="3" mb="1">Your data</Heading>
         <Text as="p" size="2" color="gray" mb="3">
           Everything lives in this browser&rsquo;s local storage and never leaves your machine. Clearing
           site data wipes it, so export a copy if you care about the history.
@@ -229,12 +238,12 @@ export function Settings({
             variant="soft"
             color="red"
             onClick={() => {
-              if (confirm(`Clear every logged credit for ${year}? Amounts and settings stay. This cannot be undone.`)) {
+              if (confirm(`Clear the ${year} credits you logged by hand? Credits Plaid found on your statement stay, and so do amounts and settings. This cannot be undone.`)) {
                 clearYear(year)
               }
             }}
           >
-            Clear {year} history
+            Clear {year} hand-logged
           </Button>
         </Flex>
       </Card>

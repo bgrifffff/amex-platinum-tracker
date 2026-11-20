@@ -9,10 +9,22 @@ body {
 
 /* ---------- year grid ---------- */
 
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
 table.grid {
   border-collapse: collapse;
   width: 100%;
   font-size: var(--font-size-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Line the four tables' trailing columns up, so the right edge is not ragged. */
+table.grid th:last-child,
+table.grid td:last-child {
+  width: 96px;
+  text-align: right;
 }
 
 table.grid th,
@@ -33,7 +45,7 @@ table.grid td:first-child {
   position: sticky;
   left: 0;
   background: var(--color-panel-solid);
-  min-width: 215px;
+  min-width: clamp(130px, 40vw, 215px);
   font-weight: 400;
 }
 
@@ -45,15 +57,21 @@ table.grid thead th {
   letter-spacing: .04em;
 }
 
-table.grid tbody tr:hover td,
-table.grid tbody tr:hover th:first-child {
+table.grid tbody tr:hover td {
   background: var(--gray-a2);
+}
+
+/* Layer the hover tint over the solid panel instead of replacing it, or the
+   cells scrolled underneath show through the sticky name column. */
+table.grid tbody tr:hover th:first-child {
+  background: linear-gradient(var(--gray-a2), var(--gray-a2)), var(--color-panel-solid);
 }
 
 /* The period you are in now, so "which quarter is this" needs no counting. */
 table.grid th.current,
 table.grid td.current {
-  background: var(--accent-a3);
+  background: var(--accent-3);
+  box-shadow: inset 1px 0 var(--accent-7), inset -1px 0 var(--accent-7);
 }
 
 table.grid thead th.current {
@@ -62,7 +80,7 @@ table.grid thead th.current {
 }
 
 table.grid tbody tr:hover td.current {
-  background: var(--accent-a4);
+  background: var(--accent-4);
 }
 
 .now-dot {
@@ -79,8 +97,8 @@ table.grid tbody tr:hover td.current {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   font-size: var(--font-size-2);
   line-height: 1;
@@ -117,9 +135,10 @@ table.grid tbody tr:hover td.current {
 }
 
 .pip.missed {
-  background: var(--red-a3);
-  border-color: var(--red-a6);
+  background: var(--red-4);
+  border-color: var(--red-8);
   color: var(--red-11);
+  font-weight: 700;
 }
 
 .pip:disabled {
@@ -134,4 +153,11 @@ table.grid tbody tr:hover td.current {
   border: 1px solid var(--gray-a6);
   display: inline-block;
   flex-shrink: 0;
+}
+
+@media (pointer: coarse) {
+  .pip {
+    width: 34px;
+    height: 34px;
+  }
 }
