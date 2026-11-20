@@ -81,7 +81,7 @@ export const BENEFITS: Benefit[] = [
     category: 'Entertainment',
     enroll: true,
     confidence: 'verified',
-    note: 'Eligible services include Disney+, Hulu, ESPN+, Peacock, The New York Times and SiriusXM. Charges must be billed directly by the service, not through an app store.',
+    note: 'Eligible: Disney+ (and the Disney+ bundle), ESPN, Hulu, Paramount+, Peacock, YouTube Premium, YouTube TV, The New York Times and The Wall Street Journal. Netflix, Spotify and Max do not count. You must subscribe directly with the service: charges through an app store, a cable bundle or any reseller are excluded, as are gift cards. The $25 is a monthly pool across all eligible charges combined, so two $12 services use it up.',
   },
   {
     id: 'uber-cash',
