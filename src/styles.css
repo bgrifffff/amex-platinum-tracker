@@ -1,0 +1,113 @@
+/*
+ * Radix Themes supplies the design system. This file holds only what it has no
+ * component for: the year grid's sticky column and its clickable period cells.
+ */
+
+body {
+  margin: 0;
+}
+
+/* ---------- year grid ---------- */
+
+table.grid {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--font-size-2);
+}
+
+table.grid th,
+table.grid td {
+  padding: var(--space-2);
+  text-align: center;
+  border-bottom: 1px solid var(--gray-a4);
+}
+
+table.grid tbody tr:last-child th,
+table.grid tbody tr:last-child td {
+  border-bottom: none;
+}
+
+table.grid th:first-child,
+table.grid td:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--color-panel-solid);
+  min-width: 215px;
+  font-weight: 400;
+}
+
+table.grid thead th {
+  font-size: var(--font-size-1);
+  color: var(--gray-a10);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+table.grid tbody tr:hover td,
+table.grid tbody tr:hover th:first-child {
+  background: var(--gray-a2);
+}
+
+/* Period cells. Radix has no "toggleable square" primitive, so these are hand-built. */
+.pip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: var(--font-size-2);
+  line-height: 1;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--gray-a6);
+  background: var(--gray-a2);
+  color: var(--gray-a9);
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+}
+
+.pip:hover:not(:disabled) {
+  border-color: var(--accent-8);
+  background: var(--accent-a3);
+}
+
+.pip:focus-visible {
+  outline: 2px solid var(--accent-8);
+  outline-offset: 2px;
+}
+
+.pip.used {
+  background: var(--green-9);
+  border-color: var(--green-9);
+  color: var(--green-contrast);
+  font-weight: 700;
+}
+
+.pip.partial {
+  background: var(--green-a5);
+  border-color: var(--green-8);
+  color: var(--green-12);
+  font-weight: 600;
+}
+
+.pip.missed {
+  background: var(--red-a3);
+  border-color: var(--red-a6);
+  color: var(--red-11);
+}
+
+.pip:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+.legend-swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: var(--radius-1);
+  border: 1px solid var(--gray-a6);
+  display: inline-block;
+  flex-shrink: 0;
+}
